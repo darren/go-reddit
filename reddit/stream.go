@@ -31,10 +31,12 @@ func (s *StreamService) Posts(subreddit string, opts ...StreamOpt) (<-chan *Post
 	ticker := time.NewTicker(streamConfig.Interval)
 	postsCh := make(chan *Post)
 	errsCh := make(chan error)
+	quitCh := make(chan bool)
 
 	var once sync.Once
 	stop := func() {
 		once.Do(func() {
+			close(quitCh)
 			ticker.Stop()
 			close(postsCh)
 			close(errsCh)
@@ -61,7 +63,11 @@ func (s *StreamService) Posts(subreddit string, opts ...StreamOpt) (<-chan *Post
 				defer wg.Done()
 
 				if err != nil {
-					errsCh <- err
+					select {
+					case <-quitCh:
+					default:
+						errsCh <- err
+					}
 					return
 				}
 
@@ -88,7 +94,11 @@ func (s *StreamService) Posts(subreddit string, opts ...StreamOpt) (<-chan *Post
 						break
 					}
 
-					postsCh <- post
+					select {
+					case <-quitCh:
+					default:
+						postsCh <- post
+					}
 				}
 			})
 
@@ -121,10 +131,12 @@ func (s *StreamService) Comments(subreddit string, opts ...StreamOpt) (<-chan *C
 	ticker := time.NewTicker(streamConfig.Interval)
 	commentsCh := make(chan *Comment)
 	errsCh := make(chan error)
+	quitCh := make(chan bool)
 
 	var once sync.Once
 	stop := func() {
 		once.Do(func() {
+			close(quitCh)
 			ticker.Stop()
 			close(commentsCh)
 			close(errsCh)
@@ -149,7 +161,11 @@ func (s *StreamService) Comments(subreddit string, opts ...StreamOpt) (<-chan *C
 			go s.getComments(subreddit, func(comments []*Comment, err error) {
 				defer wg.Done()
 				if err != nil {
-					errsCh <- err
+					select {
+					case <-quitCh:
+					default:
+						errsCh <- err
+					}
 					return
 				}
 
@@ -174,7 +190,11 @@ func (s *StreamService) Comments(subreddit string, opts ...StreamOpt) (<-chan *C
 							break
 						}
 
-						commentsCh <- comment
+						select {
+						case <-quitCh:
+						default:
+							commentsCh <- comment
+						}
 					}
 
 				}
