@@ -46,6 +46,9 @@ func DefaultClient() *Client {
 	return defaultClient
 }
 
+// RequestCallback defines the type of the request callback function.
+type RequestCallback func(*http.Request)
+
 // RequestCompletionCallback defines the type of the request callback function.
 type RequestCompletionCallback func(*http.Request, *http.Response)
 
@@ -99,6 +102,12 @@ type Client struct {
 	oauth2Transport *oauth2.Transport
 
 	onRequestCompleted RequestCompletionCallback
+	onRequest          RequestCallback
+}
+
+// OnRequest sets the client's request  callback.
+func (c *Client) OnRequest(rc RequestCallback) {
+	c.onRequest = rc
 }
 
 // OnRequestCompleted sets the client's request completion callback.
@@ -260,6 +269,10 @@ func (c *Client) NewRequest(method string, path string, form url.Values) (*http.
 	c.appendJSONExtensionToRequestURLPath(req)
 	req.Header.Add(headerContentType, mediaTypeForm)
 	req.Header.Add(headerAccept, mediaTypeJSON)
+
+	if c.onRequest != nil {
+		c.onRequest(req)
+	}
 
 	return req, nil
 }
